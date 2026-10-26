@@ -4,6 +4,7 @@ import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/user_friend_service.dart';
 import '../chat/chat_screen.dart';
+import '../profile/user_profile_detail_screen.dart';
 
 class FriendsScreen extends StatefulWidget {
   const FriendsScreen({super.key});
@@ -25,10 +26,11 @@ class _FriendsScreenState extends State<FriendsScreen> {
   }
 
   Future<void> _performSearch(String currentUid) async {
+    if (_searchController.text.trim().isEmpty) return;
     setState(() => _isSearching = true);
     final results = await _userService.searchUsers(
       currentUid,
-      _searchController.text,
+      _searchController.text.trim(),
     );
     if (mounted) {
       setState(() {
@@ -57,53 +59,101 @@ class _FriendsScreenState extends State<FriendsScreen> {
           length: 3,
           child: Scaffold(
             appBar: AppBar(
-              title: const Text('Danh bạ Bạn bè'),
-              bottom: const TabBar(
+              title: const Text(
+                'Danh bạ & Bạn bè',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              bottom: TabBar(
+                indicatorColor: Theme.of(context).colorScheme.primary,
+                labelColor: Theme.of(context).colorScheme.primary,
+                unselectedLabelColor: Colors.grey.shade600,
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold),
                 tabs: [
-                  Tab(text: 'Bạn bè'),
-                  Tab(text: 'Lời mời'),
-                  Tab(text: 'Tìm bạn'),
+                  Tab(text: 'Bạn bè (${currentUser.friendIds.length})'),
+                  const Tab(text: 'Lời mời'),
+                  const Tab(text: 'Tìm bạn'),
                 ],
               ),
             ),
             body: TabBarView(
               children: [
-                // TAB 1: DANH SÁCH BẠN BÈ HIỆN TẠI & NÚT CHAT
+                // TAB 1: DANH SÁCH BẠN BÈ HIỆN TẠI
                 StreamBuilder<List<UserModel>>(
                   stream: _userService.getFriendsListStream(currentUser.friendIds),
                   builder: (context, friendSnap) {
                     final friends = friendSnap.data ?? [];
                     if (friends.isEmpty) {
-                      return const Center(
-                        child: Text('Bạn chưa có người bạn nào trong danh bạ.'),
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.people_outline_rounded,
+                                size: 64, color: Colors.grey.shade400),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Bạn chưa có người bạn nào trong danh bạ.\nHãy sang tab "Tìm bạn" để kết nối thêm!',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.black54),
+                            ),
+                          ],
+                        ),
                       );
                     }
                     return ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                       itemCount: friends.length,
                       itemBuilder: (context, index) {
                         final friend = friends[index];
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundImage: friend.avatarUrl.isNotEmpty
-                                ? NetworkImage(friend.avatarUrl)
-                                : null,
-                          ),
-                          title: Text(friend.displayName),
-                          subtitle: Text(friend.email),
-                          trailing: FilledButton.tonalIcon(
-                            onPressed: () {
+                        return Card(
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
+                          child: ListTile(
+                            onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => ChatScreen(
+                                  builder: (_) => UserProfileDetailScreen(
+                                    targetUser: friend,
                                     currentUser: currentUser,
-                                    friendUser: friend,
                                   ),
                                 ),
                               );
                             },
-                            icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                            label: const Text('Nhắn tin'),
+                            leading: CircleAvatar(
+                              radius: 22,
+                              backgroundImage: friend.avatarUrl.isNotEmpty
+                                  ? NetworkImage(friend.avatarUrl)
+                                  : null,
+                              child: friend.avatarUrl.isEmpty
+                                  ? const Icon(Icons.person)
+                                  : null,
+                            ),
+                            title: Text(
+                              friend.displayName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            subtitle: Text(
+                              friend.email,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            trailing: FilledButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ChatScreen(
+                                      currentUser: currentUser,
+                                      friendUser: friend,
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.chat_bubble_rounded, size: 16),
+                              label: const Text('Nhắn tin'),
+                            ),
                           ),
                         );
                       },
@@ -111,45 +161,101 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   },
                 ),
 
-                // TAB 2: LỜI MỜI KẾT BẠN CHỜ DUYỆT
+                // TAB 2: LỜI MỜI KẾT BẠN
                 StreamBuilder<List<FriendRequestModel>>(
                   stream: _userService.getIncomingRequestsStream(currentUser.uid),
                   builder: (context, reqSnap) {
                     final requests = reqSnap.data ?? [];
                     if (requests.isEmpty) {
-                      return const Center(
-                        child: Text('Không có lời mời kết bạn mới.'),
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.mark_email_read_outlined,
+                                size: 64, color: Colors.grey.shade400),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Không có lời mời kết bạn mới.',
+                              style: TextStyle(color: Colors.black54),
+                            ),
+                          ],
+                        ),
                       );
                     }
                     return ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                       itemCount: requests.length,
                       itemBuilder: (context, index) {
                         final req = requests[index];
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundImage: req.senderAvatar.isNotEmpty
-                                ? NetworkImage(req.senderAvatar)
-                                : null,
-                          ),
-                          title: Text(req.senderName),
-                          subtitle: const Text('Đã gửi lời mời kết bạn'),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton.filled(
-                                onPressed: () =>
-                                    _userService.acceptFriendRequest(req),
-                                icon: const Icon(Icons.check),
-                                tooltip: 'Chấp nhận',
-                              ),
-                              const SizedBox(width: 8),
-                              IconButton.outlined(
-                                onPressed: () => _userService
-                                    .rejectFriendRequest(req.requestId),
-                                icon: const Icon(Icons.close),
-                                tooltip: 'Từ chối',
-                              ),
-                            ],
+                        return Card(
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 24,
+                                  backgroundImage: req.senderAvatar.isNotEmpty
+                                      ? NetworkImage(req.senderAvatar)
+                                      : null,
+                                  child: req.senderAvatar.isEmpty
+                                      ? const Icon(Icons.person)
+                                      : null,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        req.senderName,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      const Text(
+                                        'Đã gửi lời mời kết bạn',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.black54,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    FilledButton(
+                                      onPressed: () =>
+                                          _userService.acceptFriendRequest(req),
+                                      style: FilledButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 14,
+                                          vertical: 8,
+                                        ),
+                                      ),
+                                      child: const Text('Chấp nhận'),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    OutlinedButton(
+                                      onPressed: () => _userService
+                                          .rejectFriendRequest(req.requestId),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 8,
+                                        ),
+                                      ),
+                                      child: const Text('Từ chối'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -157,7 +263,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   },
                 ),
 
-                // TAB 3: TÌM KIẾM NGƯỜI DÙNG & GỬI KẾT BẠN
+                // TAB 3: TÌM KIẾM NGƯỜI DÙNG
                 Column(
                   children: [
                     Padding(
@@ -167,10 +273,20 @@ class _FriendsScreenState extends State<FriendsScreen> {
                           Expanded(
                             child: TextField(
                               controller: _searchController,
-                              decoration: const InputDecoration(
-                                hintText: 'Nhập tên hoặc email để tìm...',
-                                border: OutlineInputBorder(),
-                                isDense: true,
+                              onSubmitted: (_) =>
+                                  _performSearch(currentUser.uid),
+                              decoration: InputDecoration(
+                                hintText: 'Nhập tên hoặc email...',
+                                prefixIcon: const Icon(Icons.search_rounded),
+                                suffixIcon: _searchController.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          setState(() => _searchResults = []);
+                                        },
+                                      )
+                                    : null,
                               ),
                             ),
                           ),
@@ -185,48 +301,92 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     Expanded(
                       child: _isSearching
                           ? const Center(child: CircularProgressIndicator())
-                          : ListView.builder(
-                              itemCount: _searchResults.length,
-                              itemBuilder: (context, index) {
-                                final user = _searchResults[index];
-                                final isAlreadyFriend =
-                                    currentUser.friendIds.contains(user.uid);
-
-                                return ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundImage: user.avatarUrl.isNotEmpty
-                                        ? NetworkImage(user.avatarUrl)
-                                        : null,
+                          : _searchResults.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    _searchController.text.isEmpty
+                                        ? 'Nhập từ khóa để tìm kiếm người dùng mới.'
+                                        : 'Không tìm thấy người dùng phù hợp.',
+                                    style: const TextStyle(color: Colors.black54),
                                   ),
-                                  title: Text(user.displayName),
-                                  subtitle: Text(user.email),
-                                  trailing: isAlreadyFriend
-                                      ? const Chip(label: Text('Đã là bạn bè'))
-                                      : OutlinedButton.icon(
-                                          onPressed: () async {
-                                            await _userService.sendFriendRequest(
-                                              sender: currentUser,
-                                              receiverId: user.uid,
-                                            );
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    'Đã gửi lời mời kết bạn tới ${user.displayName}',
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                          },
-                                          icon: const Icon(
-                                              Icons.person_add_alt_1,
-                                              size: 18),
-                                          label: const Text('Kết bạn'),
+                                )
+                              : ListView.builder(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 6),
+                                  itemCount: _searchResults.length,
+                                  itemBuilder: (context, index) {
+                                    final user = _searchResults[index];
+                                    final isAlreadyFriend = currentUser
+                                        .friendIds
+                                        .contains(user.uid);
+
+                                    return Card(
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 4,
+                                      ),
+                                      child: ListTile(
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => UserProfileDetailScreen(
+                                                targetUser: user,
+                                                currentUser: currentUser,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        leading: CircleAvatar(
+                                          backgroundImage:
+                                              user.avatarUrl.isNotEmpty
+                                                  ? NetworkImage(user.avatarUrl)
+                                                  : null,
+                                          child: user.avatarUrl.isEmpty
+                                              ? const Icon(Icons.person)
+                                              : null,
                                         ),
-                                );
-                              },
-                            ),
+                                        title: Text(
+                                          user.displayName,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                        subtitle: Text(user.email),
+                                        trailing: isAlreadyFriend
+                                            ? const Chip(
+                                                label: Text('Đã là bạn bè'),
+                                                backgroundColor: Color(0xFFE2E8F0),
+                                              )
+                                            : OutlinedButton.icon(
+                                                onPressed: () async {
+                                                  await _userService
+                                                      .sendFriendRequest(
+                                                    sender: currentUser,
+                                                    receiverId: user.uid,
+                                                  );
+                                                  if (context.mounted) {
+                                                    ScaffoldMessenger.of(
+                                                            context)
+                                                        .showSnackBar(
+                                                      SnackBar(
+                                                        content: Text(
+                                                          'Đã gửi lời mời kết bạn tới ${user.displayName}',
+                                                        ),
+                                                        behavior: SnackBarBehavior.floating,
+                                                      ),
+                                                    );
+                                                  }
+                                                },
+                                                icon: const Icon(
+                                                  Icons.person_add_alt_1_rounded,
+                                                  size: 16,
+                                                ),
+                                                label: const Text('Kết bạn'),
+                                              ),
+                                      ),
+                                    );
+                                  },
+                                ),
                     ),
                   ],
                 ),

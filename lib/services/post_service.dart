@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/comment_model.dart';
 import '../models/post_model.dart';
 import '../models/user_model.dart';
+import 'notification_service.dart';
 
 class PostService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -30,7 +31,6 @@ class PostService {
     required String currentUserId,
     required List<String> currentUserFriendIds,
   }) {
-    // Lấy tất cả bài viết hoặc lọc phía client để đơn giản và tránh lỗi composite index phức tạp
     return _firestore
         .collection('posts')
         .orderBy('createdAt', descending: true)
@@ -40,7 +40,6 @@ class PostService {
         return PostModel.fromMap(doc.data(), doc.id);
       }).toList();
 
-      // Lọc: Hiển thị bài public, bài của chính mình, hoặc bài của bạn bè
       return allPosts.where((post) {
         if (post.visibility == 'public') return true;
         if (post.authorId == currentUserId) return true;
@@ -66,18 +65,28 @@ class PostService {
 
   Future<void> toggleLike({
     required String postId,
-    required String currentUserId,
+    required String postAuthorId,
+    required UserModel currentUser,
     required bool isCurrentlyLiked,
   }) async {
     final postRef = _firestore.collection('posts').doc(postId);
     if (isCurrentlyLiked) {
       await postRef.update({
-        'likes': FieldValue.arrayRemove([currentUserId]),
+        'likes': FieldValue.arrayRemove([currentUser.uid]),
       });
     } else {
       await postRef.update({
-        'likes': FieldValue.arrayUnion([currentUserId]),
+        'likes': FieldValue.arrayUnion([currentUser.uid]),
       });
+
+      // Bắn thông báo Like
+      await NotificationService().sendNotification(
+        recipientId: postAuthorId,
+        sender: currentUser,
+        type: 'like',
+        postId: postId,
+        text: 'đã thích bài viết của bạn',
+      );
     }
   }
 
@@ -97,6 +106,7 @@ class PostService {
 
   Future<void> addComment({
     required String postId,
+    required String postAuthorId,
     required UserModel author,
     required String text,
   }) async {
@@ -121,5 +131,14 @@ class PostService {
       final newCommentRef = postRef.collection('comments').doc();
       transaction.set(newCommentRef, comment.toMap());
     });
+
+    // Bắn thông báo Comment
+    await NotificationService().sendNotification(
+      recipientId: postAuthorId,
+      sender: author,
+      type: 'comment',
+      postId: postId,
+      text: text,
+    );
   }
 }
