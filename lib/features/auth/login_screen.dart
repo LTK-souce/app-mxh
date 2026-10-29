@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../services/notification_service.dart';
 
 class LoginScreen extends StatefulWidget {
   final AuthService? authService;
@@ -50,18 +51,78 @@ class _LoginScreenState extends State<LoginScreen> {
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle_rounded, color: Colors.white),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text('🎉 Đăng nhập thành công! Chào mừng bạn quay trở lại.'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green.shade700,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+
+        // Bắn thông báo hệ thống về điện thoại
+        await NotificationService().showLocalNotification(
+          id: 1001,
+          title: '🎉 Đăng nhập thành công',
+          body: 'Chào mừng bạn quay trở lại MiniSocial!',
+        );
       } else {
         await _authService.registerWithEmail(
           email: _emailController.text.trim(),
           password: _passwordController.text,
           displayName: _nameController.text.trim(),
         );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle_rounded, color: Colors.white),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text('🎉 Tạo tài khoản thành công! Chào mừng bạn đến với MiniSocial.'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green.shade700,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+
+        // Bắn thông báo hệ thống về điện thoại
+        await NotificationService().showLocalNotification(
+          id: 1002,
+          title: '🎉 Đăng ký thành công',
+          body: 'Tài khoản của bạn đã được khởi tạo thành công trên MiniSocial!',
+        );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(e.toString().replaceAll('Exception: ', '')),
+              ),
+            ],
+          ),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
