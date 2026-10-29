@@ -345,7 +345,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         textCapitalization: TextCapitalization.words,
                         decoration: const InputDecoration(
                           labelText: 'Tên hiển thị',
-                          hintText: 'Nguyễn Văn A',
+                          hintText: 'Họ và tên',
                           prefixIcon: Icon(Icons.person_outline_rounded),
                         ),
                         validator: (value) {
